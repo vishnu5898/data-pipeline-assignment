@@ -1,12 +1,13 @@
+import os
 import requests
 import psycopg2
 
 
 connection = psycopg2.connect(
     host="localhost",
-    database="market_data",
-    user="test_user",
-    password="test_password"
+    database=os.getenv("PG_DATABASE", "market_data"),
+    user=os.getenv("PG_USERNAME", ""),
+    password=os.getenv("PG_PASSWORD", "")
 )
 
 create_table_statement = (
@@ -77,4 +78,5 @@ if __name__ == "__main__":
     cursor.execute(create_index_statement)
     connection.commit()
     while True:
+        print("Ingesting data..........")
         main()

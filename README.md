@@ -100,9 +100,9 @@ cd data-pipeline-assignment
 ```
 Create a new file `env.sh`. Run this command to create the file `touch env.sh`. Paste the below variables and values to this file and then save the file. Please make sure to give the correct value to the variable.
 ```
-PG_USERNAME=test_user
-PG_PASSWORD=test_password
-PG_DATABASE=market_data
+export PG_USERNAME=test_user
+export PG_PASSWORD=test_password
+export PG_DATABASE=market_data
 ```
 Run these commands in the terminal to start the pipeline
 ```
