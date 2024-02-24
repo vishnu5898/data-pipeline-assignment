@@ -7,9 +7,20 @@ and transform, clean and store this data to Postgresql table.
 The storage table is ```market_data.stock_data```
 """
 
+from datetime import timedelta, timezone
+import calendar
+import datetime
 import os
+import time
+
 import requests
+import pandas as pd
 import psycopg2
+
+from server import AVAILABLE_SYMBOLS
+
+
+LAST_INSERTED_DATETIME_FILE = "last_inserted_month.csv"
 
 
 # Make connection to postgres table
@@ -20,35 +31,17 @@ connection = psycopg2.connect(
     password=os.getenv("PG_PASSWORD", "")
 )
 create_table_statement = (
+    f"CREATE SCHEMA IF NOT EXISTS market_data;"
     f"CREATE TABLE IF NOT EXISTS market_data.stock_data "
-    f"(date_of_stock DATE, percentage_deliverable FLOAT, "
-    f"close FLOAT, deliverable_volume INTEGER, high FLOAT, "
-    f"last FLOAT, low FLOAT, open FLOAT, previous_close FLOAT, "
-    f"series VARCHAR, symbol VARCHAR, trades INTEGER, "
-    f"turnover BIGINT, volume_weighted_average_price FLOAT, "
-    f"volume INTEGER"
+    f"(stock_datetime TIMESTAMP WITHOUT TIME ZONE, open FLOAT, "
+    f"high FLOAT, low FLOAT, close FLOAT, "
+    f"volume FLOAT, symbol VARCHAR, "
+    f"CONSTRAINT market_data_stock_data_unq UNIQUE (symbol, stock_datetime)"
     f") WITH (fillfactor=70);"
 )
 create_index_statement = (
-    f"CREATE INDEX IF NOT EXISTS market_data_stock_data_date_idx ON market_data.stock_data (date_of_stock)"
+    f"CREATE INDEX IF NOT EXISTS market_data_stock_data_stock_datetime_idx ON market_data.stock_data (stock_datetime);"
 )
-api_to_column_mapping = {
-    "%Deliverble": "percentage_deliverable",
-    "Close": "close",
-    "Date": "date_of_stock",
-    "Deliverable Volume": "deliverable_volume",
-    "High": "high",
-    "Last": "last",
-    "Low": "low",
-    "Open": "open",
-    "Prev Close": "previous_close",
-    "Series": "series",
-    "Symbol": "symbol",
-    "Trades": "trades",
-    "Turnover": "turnover",
-    "VWAP": "volume_weighted_average_price",
-    "Volume": "volume",
-}
 
 
 def create_insert_statement(data_dict: dict) -> str:
@@ -62,27 +55,74 @@ def create_insert_statement(data_dict: dict) -> str:
     column_values_str = ", ".join(f"%({column})s" for column in columns)
     stmt = (
         f"INSERT INTO market_data.stock_data ({columns_str}) "
-        f"VALUES ({column_values_str})"
+        f"VALUES ({column_values_str}) ON CONFLICT ON CONSTRAINT market_data_stock_data_unq DO NOTHING"
     )
     return stmt
 
 
+def create_month_range() -> list:
+    months = []
+    today = datetime.datetime.now(tz=timezone(-timedelta(hours=5)))
+    start = datetime.datetime(year=2000, month=1, day=1, tzinfo=timezone(-timedelta(hours=5)))
+
+    required_date = start
+    while required_date <= today:
+        required_month = required_date.date().strftime("%Y-%m")
+        months.append(required_month)
+        no_of_days = calendar.monthrange(required_date.year, required_date.month)[1]
+        required_date = timedelta(days=no_of_days) + required_date
+
+    return months
+
+
+class YearMonth:
+    def __init__(self, year_month: str) -> None:
+        self.year_month = year_month
+        self.year = year_month.split("-")[0]
+        self.month = year_month.split("-")[1]
+
+    def to_date(self) -> datetime.datetime:
+        return datetime.datetime.strptime(f"{self.year}-{self.month}-01", "%Y-%m-%d")
+
+
 def main():
-    data = True
-    page_no = 1
-    while data:
+    months = create_month_range()
+    last_inserted_month = months[0]
+
+    if os.path.exists(LAST_INSERTED_DATETIME_FILE):
+        df = pd.read_csv(LAST_INSERTED_DATETIME_FILE)
+        last_inserted_month = df.to_dict("records")[0]["month"]
+    for month in months:
+        custom_month = YearMonth(month).to_date()
+        custom_last_inserted_month = YearMonth(last_inserted_month).to_date()
+
+        # Skipping already ingested data
+        if custom_month <= custom_last_inserted_month:
+            continue
+
         # Get data from the mock api
-        res = requests.get(f"http://127.0.0.1:5000/data?page_no={page_no}")
-        data = res.json()["data"]
-        for api_data in data:
-            # Transformation of data occurs here
-            data_dict = {}
-            for key in api_data:
-                data_dict[api_to_column_mapping[key]] = api_data[key]
-            stmt = create_insert_statement(data_dict)
-            cursor.execute(stmt, data_dict)
+
+        for symbol in AVAILABLE_SYMBOLS:
+            res = requests.get(f"http://localhost:5000/alpha_vintage?month={month}&symbol={symbol}")
+            stock_data = res.json()
+            stock_data = stock_data["Time Series (1min)"]
+            for date_time in stock_data:
+                data_dict = {}
+                data_dict["stock_datetime"] = date_time
+                data_dict["open"] = stock_data[date_time]["1. open"]
+                data_dict["high"] = stock_data[date_time]["2. high"]
+                data_dict["low"] = stock_data[date_time]["3. low"]
+                data_dict["close"] = stock_data[date_time]["4. close"]
+                data_dict["volume"] = stock_data[date_time]["5. volume"]
+                data_dict["symbol"] = symbol
+                stmt = create_insert_statement(data_dict)
+                cursor.execute(stmt, data_dict)
         connection.commit()
-        page_no += 1
+        df = pd.DataFrame([{"month": month}])
+        df.to_csv(LAST_INSERTED_DATETIME_FILE, index=False)
+        print(f"{month=}")
+
+
 
 
 if __name__ == "__main__":
@@ -92,6 +132,4 @@ if __name__ == "__main__":
     connection.commit()
 
     # Code to simulate real time data ingestion to the table
-    while True:
-        print("Ingesting data..........")
-        main()
+    main()
