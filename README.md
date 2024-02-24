@@ -10,8 +10,6 @@
 1. A mock API to simulate real-time market data is set. The api demonstrates real-time-data api from stock market.
 2. A basic and simple pipeline that ingests, processes and stores this data is designed and implemented.
 3. The pipeline only works in a real-time manner till the data ingestion and storage to Postgresql table.
-4. Tableau cannot be incorporated with this pipeline as it is not a paid version, but images of dashboard are attached.
-
 
 ### Data Governance and Data Structures
 ##### `Key points`
@@ -109,7 +107,7 @@ python -m main
 
 ## Deliverable
 #### Tableau Dashboard
-The dashboard created is published in this link. [Click here](https://public.tableau.com/app/profile/vishnu.p.s/viz/stock_17084578685070/Dashboard1#1)
+The dashboard created is published in this link. [Click here](https://public.tableau.com/app/profile/vishnu.p.s/viz/Stockmarketdata_17087496321220/Dashboard1#1)
 
 
 ### Governance Framework
@@ -196,16 +194,10 @@ Data users are authorized individuals who have been granted access to agency dat
 
 
 The scope of data governance includes
-- Data access: Each data owner with a business owner of the company System will determine
-which roles will have access to the systems that pertain to their bureau areas. They will also
-determine who is granted access to which data and at what granularity within the system.
-- Data requests: Establish and communicate the way in which data will be requested from
-within and outside the Agency, including how those requests will be reviewed,
-approved/denied, and fulfilled.
+- Data access: Each data owner with a business owner of the company System will determine which roles will have access to the systems that pertain to their bureau areas. They will also determine who is granted access to which data and at what granularity within the system.
+- Data requests: Establish and communicate the way in which data will be requested from within and outside the Agency, including how those requests will be reviewed, approved/denied, and fulfilled.
 - Data collection: Determine how necessary changes to data collections are identified, defined,
 approved, communicated, and executed.
 - Data validation: Create and maintain a policy for which edit checks will be established and
-how data will be validated at each point in the lifecycle and corrected at the source (if need
-be).
-- Data release/reporting: Determine how data will be frozen, compiled, checked, formatted,
-approved, and communicated for external release.
+how data will be validated at each point in the lifecycle and corrected at the source (if need be).
+- Data release/reporting: Determine how data will be frozen, compiled, checked, formatted, approved, and communicated for external release.
